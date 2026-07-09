@@ -1,5 +1,6 @@
 import { taskStatus } from "../enumerations/taskStatus.js";
 import { ContractValidator } from "../validation/contractValidator.js";
+import * as Crypto from 'expo-crypto'; // Adicione este import
 
 export default class TaskAggregate {
     id;
@@ -10,19 +11,21 @@ export default class TaskAggregate {
     createdDate;
     notify;
     status;
-    
+
     progressPercentage;
-    subTasks = this.#_subTasks;
+
+    get subTasks() {
+        return this.#_subTasks;
+    }
     #_subTasks = [];
-    constructor() { }
 
     constructor(description, observation, priority, dueDate, notify) {
 
-        if (!validateContract()) {
+        if (!this.#validateContract(description, observation, priority, dueDate, notify)) {
             throw new Error("Falha na validação de domínio: Dados inválidos para TaskAggregate.");
         }
 
-        this.id = new Guid();
+        this.id = Crypto.randomUUID();
         this.description = description;
         this.observation = observation;
         this.priority = priority;
@@ -55,11 +58,11 @@ export default class TaskAggregate {
         this.#_subTasks.push(subTask);
     }
 
-    #processCalculatedProperties(){
+    #processCalculatedProperties() {
         progressPercentage = this.#_subTasks.length > 0 ? (this.#_subTasks.filter(st => st.status === taskStatus.Done).length / this.#_subTasks.length) * 100 : 0;
     }
 
-    #validateContract() {
+    #validateContract(description, observation, priority, dueDate, notify) {
         const contract = new ContractValidator()
             .requires(description)
             .isString(description)
@@ -68,10 +71,10 @@ export default class TaskAggregate {
             .isString(observation)
             .hasMaxLen(observation, 500)
 
-            .isRequired(priority)
+            .requires(priority)
             .isInteger(priority)
 
-            .isRequired(dueDate)
+            .requires(dueDate)
             .isDate(dueDate)
 
             .isBoolean(notify);
@@ -80,7 +83,7 @@ export default class TaskAggregate {
     }
 
     static createFromDatabase(rawData, subTasks) {
-        const instance = Object.create(TaskAggregate.prototype); 
+        const instance = Object.create(TaskAggregate.prototype);
 
         instance.id = rawData.id;
         instance.description = rawData.description;
@@ -90,7 +93,7 @@ export default class TaskAggregate {
         instance.createdDate = new Date(rawData.createdDate);
         instance.notify = rawData.notify === 1;
         instance.status = rawData.status;
-        
+
         instance.#_subTasks = subTasks;
         instance.subTasks = subTasks;
 

@@ -4,7 +4,7 @@ let dbInstance = null;
 
 export async function initializeDatabase(database) {
     try {
-        await database.execAsync(InitialSchema);
+        await database.execAsync(DataBaseSchema);
         dbInstance = database;
     } catch (error) {
         console.error("Erro ao inicializar o banco de dados:", error);

@@ -1,16 +1,16 @@
-import { SQLiteDatabaseProvider } from 'expo-sqlite';
+import { SQLiteProvider } from 'expo-sqlite';
 import { StatusBar } from 'expo-status-bar';
 import { StyleSheet, Text, View } from 'react-native';
 import { initializeDatabase } from './src/infra/database/sqlite-connection';
 
 export default function App() {
   return (
-    <SQLiteDatabaseProvider dataBaseName="faz_ae.db" onInit={initializeDatabase}>
+    <SQLiteProvider databaseName="faz_ae.db" onInit={initializeDatabase}>
       <View style={styles.container}>
         <Text>Open up App.js to start working on your app!</Text>
         <StatusBar style="auto" />
       </View>
-    </SQLiteDatabaseProvider>
+    </SQLiteProvider>
   );
 }
 
