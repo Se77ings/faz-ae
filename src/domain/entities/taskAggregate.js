@@ -2,10 +2,19 @@ import { taskStatus } from "../enumerations/taskStatus.js";
 import { ContractValidator } from "../validation/contractValidator.js";
 
 export default class TaskAggregate {
-    #_subTasks = [];
+    id;
+    description;
+    observation;
+    priority;
+    dueDate;
+    createdDate;
+    notify;
     status;
+    
     progressPercentage;
     subTasks = this.#_subTasks;
+    #_subTasks = [];
+    constructor() { }
 
     constructor(description, observation, priority, dueDate, notify) {
 
@@ -46,6 +55,10 @@ export default class TaskAggregate {
         this.#_subTasks.push(subTask);
     }
 
+    #processCalculatedProperties(){
+        progressPercentage = this.#_subTasks.length > 0 ? (this.#_subTasks.filter(st => st.status === taskStatus.Done).length / this.#_subTasks.length) * 100 : 0;
+    }
+
     #validateContract() {
         const contract = new ContractValidator()
             .requires(description)
@@ -64,5 +77,25 @@ export default class TaskAggregate {
             .isBoolean(notify);
 
         return contract.isValid;
+    }
+
+    static createFromDatabase(rawData, subTasks) {
+        const instance = Object.create(TaskAggregate.prototype); 
+
+        instance.id = rawData.id;
+        instance.description = rawData.description;
+        instance.observation = rawData.observation;
+        instance.priority = rawData.priority;
+        instance.dueDate = new Date(rawData.dueDate);
+        instance.createdDate = new Date(rawData.createdDate);
+        instance.notify = rawData.notify === 1;
+        instance.status = rawData.status;
+        
+        instance.#_subTasks = subTasks;
+        instance.subTasks = subTasks;
+
+        instance.#processCalculatedProperties();
+
+        return instance;
     }
 }
