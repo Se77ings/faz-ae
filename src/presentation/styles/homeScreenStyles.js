@@ -91,7 +91,7 @@ export const styles = StyleSheet.create({
   cardHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    alignItems: 'flex-start',
+    alignItems: 'flex-start'
   },
   taskTitle: {
     color: '#FFFFFF',

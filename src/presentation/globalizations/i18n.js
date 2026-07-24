@@ -18,7 +18,11 @@ const translations = {
     saveError: "Erro ao salvar a tarefa no banco.",
     cancel: "Cancelar",
     save: "Salvar",
-    editTask: "Editar Tarefa"
+    editTask: "Editar Tarefa",
+    task: "Tarefa",
+    date: "Data",
+    time: "Horário",
+    subTasksLabel: "Sub-tarefas",
   },
   "en-US": {
     myTasks: "My Tasks",
@@ -39,7 +43,11 @@ const translations = {
     saveError: "Error saving task to database.",
     cancel: "Cancel",
     save: "Save",
-    editTask: "Edit Task"
+    editTask: "Edit Task",
+    task: "Task",
+    date: "Date",
+    time: "Time",
+    subTasksLabel: "Sub-tasks",
   }
 };
 

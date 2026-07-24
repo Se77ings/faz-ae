@@ -8,6 +8,7 @@ import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { initializeDatabase } from './src/infra/database/sqlite-connection';
 import HomeScreen from './src/presentation/homeScreen';
 import TaskFormPage from './src/presentation/taskForm';
+import ViewTaskPage from './src/presentation/viewTaskPage';
 
 const Stack = createNativeStackNavigator();
 
@@ -25,6 +26,7 @@ export default function App() {
             }}>
             <Stack.Screen name="Home" component={HomeScreen} />
             <Stack.Screen name="TaskForm" component={TaskFormPage} />
+            <Stack.Screen name="ViewTask" component={ViewTaskPage} />
           </Stack.Navigator>
         </NavigationContainer>
         <StatusBar style="light" />

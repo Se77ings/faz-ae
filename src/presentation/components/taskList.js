@@ -65,7 +65,7 @@ export default function TaskList({ selectedDate, activeTab }) {
         if (priorityValue > 5) return { label: translate('mediumPriority'), color: '#EA580C' };
         return { label: translate('lowPriority'), color: '#16A34A' };
     };
-    const formatTaskDate = (dateString) => {
+    const formatToDateTime = (dateString) => {
         if (!dateString) return '';
         const d = new Date(dateString);
         const day = d.getDate().toString().padStart(2, '0');
@@ -75,15 +75,37 @@ export default function TaskList({ selectedDate, activeTab }) {
         return `${day} ${month}, ${hours}:${minutes}`;
     };
 
+    const formatToTime = (dateString) => {
+        if (!dateString) return '';
+        const d = new Date(dateString);
+        const hours = d.getHours().toString().padStart(2, '0');
+        const minutes = d.getMinutes().toString().padStart(2, '0');
+        return `${hours}:${minutes}`;
+    }
+
+    const DateOrTimeComponent = ({ activeTab, item }) => {
+        if (!item.dueDate) return null; // Early return para código mais limpo
+
+        const isDayTab = activeTab === TabEnum.Day;
+
+        return (
+            <View>
+                <Text style={{ color: '#A1A1AA', fontSize: 12 }}>
+                    🕒 {isDayTab ? formatToTime(item.dueDate) : formatToDateTime(item.dueDate)}
+                </Text>
+            </View>
+        );
+    };
+
     const renderTaskCard = ({ item }) => {
         const priorityDetails = getPriorityDetails(item.priority);
         const isDone = item.status === 2;
-
+ 
         return (
             <TouchableOpacity
                 style={styles.card}
                 activeOpacity={0.7}
-                onPress={() => navigation.navigate('TaskForm', { taskId: item.id })}
+                onPress={() => navigation.navigate('ViewTask', { taskId: item.id })}
             >
                 <View style={[styles.priorityIndicator, { backgroundColor: priorityDetails.color }]} />
                 <View style={styles.cardContent}>
@@ -92,7 +114,7 @@ export default function TaskList({ selectedDate, activeTab }) {
                             {item.description}
                         </Text>
                         <TouchableOpacity style={styles.checkbox}>
-                            <Text style={{ fontSize: 18 }}>{isDone ? '✅' : '⚪'}</Text>
+                            <Text style={{ fontSize: 18 }}>{isDone ? '✅' : '🟩'}</Text>
                         </TouchableOpacity>
                     </View>
 
@@ -100,27 +122,21 @@ export default function TaskList({ selectedDate, activeTab }) {
 
                     <View style={styles.cardFooter}>
                         <View style={styles.metaRow}>
-                            <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                            <View style={{ flex: 1, flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between', marginRight: 10 }}>
                                 <Text style={[styles.priorityText, { color: priorityDetails.color, marginRight: 10 }]}>
                                     {priorityDetails.label}
                                 </Text>
-
-                                {/* Exibe o Dia/Hora apenas se a aba for Semana ou Mês */}
-                                {activeTab !== TabEnum.Day && item.dueDate && (
-                                    <Text style={{ color: '#A1A1AA', fontSize: 12 }}>
-                                        🕒 {formatTaskDate(item.dueDate)}
-                                    </Text>
-                                )}
+                                <DateOrTimeComponent activeTab={activeTab} item={item} />
                             </View>
 
-                            <Text style={styles.timeText}>{item.notify ? '🔔' : '🔕'}</Text>
+                            <Text style={styles.timeText}>{item.notify ? '🔔' : ''}</Text>
                         </View>
-                        <View style={styles.progressContainer}>
+                        {item.progressPercentage != 0 ?? <View style={styles.progressContainer}>
                             <View style={styles.progressBarBg}>
                                 <View style={[styles.progressBarFill, { width: `${item.progressPercentage || 0}%` }]} />
                             </View>
                             <Text style={styles.progressPercentage}>{item.progressPercentage || 0}%</Text>
-                        </View>
+                        </View>}
                     </View>
                 </View>
             </TouchableOpacity>

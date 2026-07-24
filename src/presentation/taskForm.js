@@ -144,7 +144,7 @@ export default function TaskFormPage({ navigation, route }) {
     setSubTasks(subTasks.filter((_, index) => index !== indexToRemove));
   };
 
-return (
+  return (
     <SafeAreaView style={styles.container}>
       <View style={styles.header}>
         <TouchableOpacity style={styles.headerBtn} onPress={() => navigation.goBack()}>
@@ -153,14 +153,14 @@ return (
         <Text style={styles.headerTitle}>
           {taskId ? translate('editTask') : translate('newTask')}
         </Text>
-        <TouchableOpacity style={[styles.headerBtn, styles.headerBtnSave]} onPress={handleSave} disabled={saving}>
+        <TouchableOpacity style={styles.headerBtn} onPress={handleSave} disabled={saving}>
           <Text style={styles.headerBtnText}>✅</Text>
         </TouchableOpacity>
       </View>
 
       <ScrollView contentContainerStyle={styles.listContainer} showsVerticalScrollIndicator={false}>
         <View style={styles.formContainer}>
-          
+
           <View style={styles.inputGroup}>
             <View style={styles.labelRow}>
               <Text style={styles.label}>{translate('descriptionLabel')} *</Text>
@@ -199,40 +199,6 @@ return (
             />
           </View>
 
-          {/* SESSÃO DE SUB-TAREFAS COM FLATLIST - //TODO: GLOBALIZAR */}
-          <View style={styles.inputGroup}>
-            <View style={styles.labelRow}>
-              <Text style={styles.label}>Sub-tarefas</Text>
-            </View>
-
-            <FlatList
-              data={subTasks}
-              keyExtractor={(item, index) => item.id ? item.id.toString() : index.toString()}
-              scrollEnabled={false} 
-              renderItem={({ item, index }) => (
-                <View style={styles.subTaskRow}>
-                  <Text style={styles.subTaskText}>• {item.description}</Text>
-                  <TouchableOpacity onPress={() => handleRemoveSubTask(index)}>
-                    <Text style={styles.subTaskDelete}>❌</Text>
-                  </TouchableOpacity>
-                </View>
-              )}
-            />
-
-            <View style={styles.addSubTaskContainer}>
-              <TextInput
-                style={[styles.input, { flex: 1, marginBottom: 0 }]}
-                value={newSubTaskDesc}
-                onChangeText={setNewSubTaskDesc}
-                placeholder="Nova sub-tarefa..."
-                placeholderTextColor="#71717A"
-              />
-              <TouchableOpacity style={styles.addSubTaskBtn} onPress={handleAddSubTask}>
-                <Text style={styles.addSubTaskBtnText}>+</Text>
-              </TouchableOpacity>
-            </View>
-          </View>
-
           {/* SESSÃO DE PRAZO */}
           <View style={styles.inputGroup}>
             <Text style={styles.label}>{translate('dueDateLabel')} *</Text>
@@ -241,7 +207,7 @@ return (
           <View style={styles.notifyGroup}>
             <View style={styles.notifyRow}>
               <View style={styles.notifyLabelContainer}>
-                <Text style={styles.notifyLabelText}>Data do Prazo</Text>
+                <Text style={styles.notifyLabelText}>{translate('date')}</Text>
               </View>
               <TouchableOpacity style={styles.datePickerButton} onPress={() => openDateTimePicker('date')}>
                 <Text style={styles.datePickerButtonText}>
@@ -252,7 +218,7 @@ return (
 
             <View style={styles.notifyRow}>
               <View style={styles.notifyLabelContainer}>
-                <Text style={styles.notifyLabelText}>Horário do Prazo</Text>
+                <Text style={styles.notifyLabelText}>{translate('time')}</Text>
               </View>
               <TouchableOpacity style={styles.datePickerButton} onPress={() => openDateTimePicker('time')}>
                 <Text style={styles.datePickerButtonText}>
@@ -279,6 +245,40 @@ return (
                 disabled={!isDueDateValidForNotify}
               >
                 <Text style={styles.toggleText}>{notify ? '🔔 Sim' : '🔕 Não'}</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+
+          {/* SESSÃO DE SUB-TAREFAS COM FLATLIST */}
+          <View style={styles.inputGroup}>
+            <View style={styles.labelRow}>
+              <Text style={styles.label}>{translate('subTasksLabel')}</Text>
+            </View>
+
+            <FlatList
+              data={subTasks}
+              keyExtractor={(item, index) => item.id ? item.id.toString() : index.toString()}
+              scrollEnabled={false}
+              renderItem={({ item, index }) => (
+                <View style={styles.subTaskRow}>
+                  <Text style={styles.subTaskText}>• {item.description}</Text>
+                  <TouchableOpacity onPress={() => handleRemoveSubTask(index)}>
+                    <Text style={styles.subTaskDelete}>❌</Text>
+                  </TouchableOpacity>
+                </View>
+              )}
+            />
+
+            <View style={styles.addSubTaskContainer}>
+              <TextInput
+                style={[styles.input, { flex: 1, marginBottom: 0 }]}
+                value={newSubTaskDesc}
+                onChangeText={setNewSubTaskDesc}
+                placeholder="Nova sub-tarefa..."
+                placeholderTextColor="#71717A"
+              />
+              <TouchableOpacity style={styles.addSubTaskBtn} onPress={handleAddSubTask}>
+                <Text style={styles.addSubTaskBtnText}>+</Text>
               </TouchableOpacity>
             </View>
           </View>
