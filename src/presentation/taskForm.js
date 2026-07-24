@@ -6,7 +6,8 @@ import {
   TouchableOpacity,
   TextInput,
   FlatList,
-  ActivityIndicator
+  ActivityIndicator,
+  ScrollView
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
@@ -143,151 +144,7 @@ export default function TaskFormPage({ navigation, route }) {
     setSubTasks(subTasks.filter((_, index) => index !== indexToRemove));
   };
 
-  const renderFormContent = () => (
-    <SafeAreaView style={{ flex: 1, backgroundColor: '#000000' }}>
-      <View style={styles.formContainer}>
-        <View style={styles.inputGroup}>
-          <View style={styles.labelRow}>
-            <Text style={styles.label}>{translate('descriptionLabel')} *</Text>
-            <Text style={styles.charCounter}>{description.length}/100</Text>
-          </View>
-          <TextInput
-            style={[styles.input, isDescriptionFocused && styles.inputFocused]}
-            value={description}
-            onChangeText={(text) => {
-              if (text.length <= 100) setDescription(text);
-            }}
-            placeholder={translate('descriptionPlaceholder')}
-            placeholderTextColor="#71717A"
-            onFocus={() => setIsDescriptionFocused(true)}
-            onBlur={() => setIsDescriptionFocused(false)}
-          />
-        </View>
-
-        <View style={styles.inputGroup}>
-          <View style={styles.labelRow}>
-            <Text style={styles.label}>{translate('observationLabel')}</Text>
-            <Text style={styles.charCounter}>{observation.length}/500</Text>
-          </View>
-          <TextInput
-            style={[styles.input, styles.multilineInput, isObservationFocused && styles.inputFocused]}
-            value={observation}
-            onChangeText={(text) => {
-              if (text.length <= 500) setObservation(text);
-            }}
-            placeholder={translate('observationPlaceholder')}
-            placeholderTextColor="#71717A"
-            multiline
-            numberOfLines={4}
-            onFocus={() => setIsObservationFocused(true)}
-            onBlur={() => setIsObservationFocused(false)}
-          />
-        </View>
-
-        <View style={styles.inputGroup}>
-          <Text style={styles.label}>{translate('dueDateLabel')} *</Text>
-        </View>
-
-        <View style={styles.notifyGroup}>
-          <View style={styles.notifyRow}>
-            <View style={styles.notifyLabelContainer}>
-              <Text style={styles.notifyLabelText}>Data do Prazo</Text>
-            </View>
-            <TouchableOpacity
-              style={styles.datePickerButton}
-              onPress={() => openDateTimePicker('date')}
-            >
-              <Text style={styles.datePickerButtonText}>
-                📅 {dueDate.getDate().toString().padStart(2, '0')} de {translate('months')[dueDate.getMonth()]} de {dueDate.getFullYear()}
-              </Text>
-            </TouchableOpacity>
-          </View>
-
-          <View style={styles.notifyRow}>
-            <View style={styles.notifyLabelContainer}>
-              <Text style={styles.notifyLabelText}>Horário do Prazo</Text>
-            </View>
-            <TouchableOpacity
-              style={styles.datePickerButton}
-              onPress={() => openDateTimePicker('time')}
-            >
-              <Text style={styles.datePickerButtonText}>
-                ⏰ {dueDate.getHours().toString().padStart(2, '0')}:{dueDate.getMinutes().toString().padStart(2, '0')}
-              </Text>
-            </TouchableOpacity>
-          </View>
-
-          <View style={[styles.notifyRow, !isDueDateValidForNotify && styles.notifyRowDisabled]}>
-            <View style={styles.notifyLabelContainer}>
-              <Text style={styles.notifyLabelText}>{translate('notifyLabel')}</Text>
-              {!isDueDateValidForNotify && (
-                <Text style={styles.notifySubText}>Prazo deve ser futuro</Text>
-              )}
-            </View>
-
-            <TouchableOpacity
-              style={[
-                styles.toggleButton,
-                notify && styles.toggleButtonActive,
-                !isDueDateValidForNotify && styles.toggleButtonDisabled
-              ]}
-              onPress={toggleNotify}
-              disabled={!isDueDateValidForNotify}
-            >
-              <Text style={styles.toggleText}>{notify ? '🔔 Sim' : '🔕 Não'}</Text>
-            </TouchableOpacity>
-          </View>
-        </View>
-        {/*TODO: Globalizar*/}
-        <View style={styles.inputGroup}>
-          <View style={styles.labelRow}>
-            <Text style={styles.label}>Sub-tarefas</Text>
-          </View>
-
-          {subTasks.map((st, index) => (
-            <View key={st.id || index} style={styles.subTaskRow}>
-              <Text style={styles.subTaskText}>• {st.description}</Text>
-              <TouchableOpacity onPress={() => handleRemoveSubTask(index)}>
-                <Text style={styles.subTaskDelete}>❌</Text>
-              </TouchableOpacity>
-            </View>
-          ))}
-
-          <View style={styles.addSubTaskContainer}>
-            <TextInput
-              style={[styles.input, { flex: 1, marginBottom: 0 }]}
-              value={newSubTaskDesc}
-              onChangeText={setNewSubTaskDesc}
-              placeholder="Nova sub-tarefa..."
-              placeholderTextColor="#71717A"
-            />
-            <TouchableOpacity style={styles.addSubTaskBtn} onPress={handleAddSubTask}>
-              <Text style={styles.addSubTaskBtnText}>+</Text>
-            </TouchableOpacity>
-          </View>
-        </View>        {showPicker && (
-          <DateTimePicker
-            value={dueDate}
-            mode={pickerMode}
-            is24Hour={true}
-            display="default"
-            minimumDate={new Date()}
-            onValueChange={handleDateChange}
-          />
-        )}
-        {error ? (
-          <View style={styles.errorContainer}>
-            <Text style={styles.errorText}>⚠️ {error}</Text>
-          </View>
-        ) : null}
-        {saving && (
-          <ActivityIndicator size="small" color="#FACC15" style={{ marginTop: 15 }} />
-        )}
-      </View>
-    </SafeAreaView>
-  );
-
-  return (
+return (
     <SafeAreaView style={styles.container}>
       <View style={styles.header}>
         <TouchableOpacity style={styles.headerBtn} onPress={() => navigation.goBack()}>
@@ -301,13 +158,154 @@ export default function TaskFormPage({ navigation, route }) {
         </TouchableOpacity>
       </View>
 
-      <FlatList
-        data={['form_content']}
-        keyExtractor={(item) => item}
-        renderItem={renderFormContent}
-        contentContainerStyle={styles.listContainer}
-        showsVerticalScrollIndicator={false}
-      />
+      <ScrollView contentContainerStyle={styles.listContainer} showsVerticalScrollIndicator={false}>
+        <View style={styles.formContainer}>
+          
+          <View style={styles.inputGroup}>
+            <View style={styles.labelRow}>
+              <Text style={styles.label}>{translate('descriptionLabel')} *</Text>
+              <Text style={styles.charCounter}>{description.length}/100</Text>
+            </View>
+            <TextInput
+              style={[styles.input, isDescriptionFocused && styles.inputFocused]}
+              value={description}
+              onChangeText={(text) => {
+                if (text.length <= 100) setDescription(text);
+              }}
+              placeholder={translate('descriptionPlaceholder')}
+              placeholderTextColor="#71717A"
+              onFocus={() => setIsDescriptionFocused(true)}
+              onBlur={() => setIsDescriptionFocused(false)}
+            />
+          </View>
+
+          <View style={styles.inputGroup}>
+            <View style={styles.labelRow}>
+              <Text style={styles.label}>{translate('observationLabel')}</Text>
+              <Text style={styles.charCounter}>{observation.length}/500</Text>
+            </View>
+            <TextInput
+              style={[styles.input, styles.multilineInput, isObservationFocused && styles.inputFocused]}
+              value={observation}
+              onChangeText={(text) => {
+                if (text.length <= 500) setObservation(text);
+              }}
+              placeholder={translate('observationPlaceholder')}
+              placeholderTextColor="#71717A"
+              multiline
+              numberOfLines={4}
+              onFocus={() => setIsObservationFocused(true)}
+              onBlur={() => setIsObservationFocused(false)}
+            />
+          </View>
+
+          {/* SESSÃO DE SUB-TAREFAS COM FLATLIST - //TODO: GLOBALIZAR */}
+          <View style={styles.inputGroup}>
+            <View style={styles.labelRow}>
+              <Text style={styles.label}>Sub-tarefas</Text>
+            </View>
+
+            <FlatList
+              data={subTasks}
+              keyExtractor={(item, index) => item.id ? item.id.toString() : index.toString()}
+              scrollEnabled={false} 
+              renderItem={({ item, index }) => (
+                <View style={styles.subTaskRow}>
+                  <Text style={styles.subTaskText}>• {item.description}</Text>
+                  <TouchableOpacity onPress={() => handleRemoveSubTask(index)}>
+                    <Text style={styles.subTaskDelete}>❌</Text>
+                  </TouchableOpacity>
+                </View>
+              )}
+            />
+
+            <View style={styles.addSubTaskContainer}>
+              <TextInput
+                style={[styles.input, { flex: 1, marginBottom: 0 }]}
+                value={newSubTaskDesc}
+                onChangeText={setNewSubTaskDesc}
+                placeholder="Nova sub-tarefa..."
+                placeholderTextColor="#71717A"
+              />
+              <TouchableOpacity style={styles.addSubTaskBtn} onPress={handleAddSubTask}>
+                <Text style={styles.addSubTaskBtnText}>+</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+
+          {/* SESSÃO DE PRAZO */}
+          <View style={styles.inputGroup}>
+            <Text style={styles.label}>{translate('dueDateLabel')} *</Text>
+          </View>
+
+          <View style={styles.notifyGroup}>
+            <View style={styles.notifyRow}>
+              <View style={styles.notifyLabelContainer}>
+                <Text style={styles.notifyLabelText}>Data do Prazo</Text>
+              </View>
+              <TouchableOpacity style={styles.datePickerButton} onPress={() => openDateTimePicker('date')}>
+                <Text style={styles.datePickerButtonText}>
+                  📅 {dueDate.getDate().toString().padStart(2, '0')} de {translate('months')[dueDate.getMonth()]} de {dueDate.getFullYear()}
+                </Text>
+              </TouchableOpacity>
+            </View>
+
+            <View style={styles.notifyRow}>
+              <View style={styles.notifyLabelContainer}>
+                <Text style={styles.notifyLabelText}>Horário do Prazo</Text>
+              </View>
+              <TouchableOpacity style={styles.datePickerButton} onPress={() => openDateTimePicker('time')}>
+                <Text style={styles.datePickerButtonText}>
+                  ⏰ {dueDate.getHours().toString().padStart(2, '0')}:{dueDate.getMinutes().toString().padStart(2, '0')}
+                </Text>
+              </TouchableOpacity>
+            </View>
+
+            <View style={[styles.notifyRow, !isDueDateValidForNotify && styles.notifyRowDisabled]}>
+              <View style={styles.notifyLabelContainer}>
+                <Text style={styles.notifyLabelText}>{translate('notifyLabel')}</Text>
+                {!isDueDateValidForNotify && (
+                  <Text style={styles.notifySubText}>Prazo deve ser futuro</Text>
+                )}
+              </View>
+
+              <TouchableOpacity
+                style={[
+                  styles.toggleButton,
+                  notify && styles.toggleButtonActive,
+                  !isDueDateValidForNotify && styles.toggleButtonDisabled
+                ]}
+                onPress={toggleNotify}
+                disabled={!isDueDateValidForNotify}
+              >
+                <Text style={styles.toggleText}>{notify ? '🔔 Sim' : '🔕 Não'}</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+
+          {showPicker && (
+            <DateTimePicker
+              value={dueDate}
+              mode={pickerMode}
+              is24Hour={true}
+              display="default"
+              minimumDate={new Date()}
+              onValueChange={handleDateChange}
+            />
+          )}
+
+          {error ? (
+            <View style={styles.errorContainer}>
+              <Text style={styles.errorText}>⚠️ {error}</Text>
+            </View>
+          ) : null}
+
+          {saving && (
+            <ActivityIndicator size="small" color="#FACC15" style={{ marginTop: 15 }} />
+          )}
+
+        </View>
+      </ScrollView>
     </SafeAreaView>
   );
 }

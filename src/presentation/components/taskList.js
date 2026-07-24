@@ -84,7 +84,8 @@ export default function TaskList({ selectedDate, activeTab }) {
                 style={styles.card}
                 activeOpacity={0.7}
                 onPress={() => navigation.navigate('TaskForm', { taskId: item.id })}
-            >                <View style={[styles.priorityIndicator, { backgroundColor: priorityDetails.color }]} />
+            >
+                <View style={[styles.priorityIndicator, { backgroundColor: priorityDetails.color }]} />
                 <View style={styles.cardContent}>
                     <View style={styles.cardHeader}>
                         <Text style={[styles.taskTitle, isDone && styles.taskTitleDone]}>

@@ -1,5 +1,7 @@
 import { taskStatus } from "../enumerations/taskStatus.js";
 import { ContractValidator } from "../validation/contractValidator.js";
+import { TaskValidator } from "../validation/taskValidator.js";
+import { SubTask } from "./subTask.js";
 import * as Crypto from 'expo-crypto';
 
 export default class TaskAggregate {
@@ -21,17 +23,17 @@ export default class TaskAggregate {
 
     constructor(description, observation, priority, dueDate, notify) {
 
-        if (!this.#validateContract(description, observation, priority, dueDate, notify)) {
+        if (!TaskValidator.validateMainTask(description, observation, priority, dueDate, notify)) {
             throw new Error("Falha na validação de domínio: Dados inválidos para TaskAggregate.");
         }
 
         this.id = Crypto.randomUUID();
         this.description = description;
-        this.observation = observation;
+        this.observation = observation ?? null;
         this.priority = priority;
         this.dueDate = dueDate;
         this.createdDate = new Date();
-        this.notify = notify;
+        this.notify = notify ?? false;
         this.status = taskStatus.Todo;
     }
 
@@ -53,51 +55,73 @@ export default class TaskAggregate {
         }
     }
 
-    addSubTask(description, observation, priority, dueDate, notify) {
-        const subTask = new SubTask(description, observation, priority, dueDate, notify);
-        this.#_subTasks.push(subTask);
+    addSubTasks(subTasksArray) {
+        if (!Array.isArray(subTasksArray) || subTasksArray.length === 0) return [];
+
+        const warnings = [];
+        const validSubTasks = [];
+
+        for (const st of subTasksArray) {
+            if (!TaskValidator.validateSubTask(st.description)) {
+                warnings.push(`A sub-tarefa "${st.description || 'Sem nome'}" possui dados inválidos e foi ignorada.`);
+                continue;
+            }
+
+            validSubTasks.push(new SubTask(
+                st.description,
+                st.status,
+                st.id,
+                st.priority,
+                st.createdDate,
+                st.notify
+            ));
+        }
+
+        this.#_subTasks.push(...validSubTasks);
+        this.#processCalculatedProperties();
+
+        return warnings;
+    }
+
+    update(description, observation, priority, dueDate, notify, subTasks) {
+        if (!TaskValidator.validateMainTask(description, observation, priority, dueDate, notify)) {
+            throw new Error("Falha na validação de domínio: Dados inválidos para atualização.");
+        }
+
+        this.description = description;
+        this.observation = observation ?? null;
+        this.priority = priority;
+        this.dueDate = dueDate;
+        this.notify = notify ?? false;
+
+        if (Array.isArray(subTasks)) {
+            this.#_subTasks = [];
+            this.addSubTasks(subTasks);
+        }
+
+        this.#processCalculatedProperties();
     }
 
     #processCalculatedProperties() {
         this.progressPercentage = this.#_subTasks.length > 0 ? (this.#_subTasks.filter(st => st.status === taskStatus.Done).length / this.#_subTasks.length) * 100 : 0;
     }
 
-    #validateContract(description, observation, priority, dueDate, notify) {
-        const contract = new ContractValidator()
-            .requires(description)
-            .isString(description)
-            .hasMaxLen(description, 100)
+    static createFromDatabase(rawData, subTasks = []) {
+        const instance = new TaskAggregate(
+            rawData.description,
+            rawData.observation || '',
+            rawData.priority,
+            new Date(rawData.dueDate),
+            rawData.notify === 1 || rawData.notify === true
+        );
 
-            .isString(observation)
-            .hasMaxLen(observation, 500)
+        instance.id = rawData.id;
+        instance.createdDate = new Date(rawData.createdDate);
+        instance.status = rawData.status;
 
-            .requires(priority)
-            .isInteger(priority)
+        instance.#_subTasks = Array.isArray(subTasks) ? subTasks : [];
+        instance.#processCalculatedProperties();
 
-            .requires(dueDate)
-            .isDate(dueDate)
-
-            .isBoolean(notify);
-
-        return contract.isValid;
+        return instance;
     }
-
-static createFromDatabase(rawData, subTasks = []) {
-    const instance = new TaskAggregate(
-      rawData.description,
-      rawData.observation || '',
-      rawData.priority,
-      new Date(rawData.dueDate),
-      rawData.notify === 1 || rawData.notify === true
-    );
-
-    instance.id = rawData.id;
-    instance.createdDate = new Date(rawData.createdDate);
-    instance.status = rawData.status;
-
-    instance.#_subTasks = Array.isArray(subTasks) ? subTasks : [];
-    instance.#processCalculatedProperties();
-
-    return instance;
-  }
 }

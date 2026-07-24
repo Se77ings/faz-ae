@@ -1,105 +1,133 @@
-import { openDatabaseAsync } from 'expo-sqlite';
+import { getDatabaseInstance } from '../database/sqlite-connection'; 
 import TaskAggregate from '../../domain/entities/taskAggregate';
+import { SubTask } from '../../domain//entities/subTask'; 
 
 export default class TaskRepository {
-    constructor() {
+    constructor() {}
+
+    // Agora é síncrono e usa o seu Singleton!
+    #getDatabaseConnection() { 
+        return getDatabaseInstance();
     }
 
-    async #getDatabaseConnection() {
-        return await openDatabaseAsync('faz_ae.db');
-    }
-
-async saveAsync(taskAggregate) {
+    async saveAsync(taskAggregate) {
         try {
-            const db = await this.#getDatabaseConnection();
+            const db = this.#getDatabaseConnection(); // Removemos o await
 
             const queryTask = `
                 INSERT OR REPLACE INTO tasks (id, description, observation, priority, dueDate, createdDate, notify, status) 
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?);
+                VALUES ($id, $description, $observation, $priority, $dueDate, $createdDate, $notify, $status);
             `;
-            
-            await db.runAsync(queryTask, [
-                taskAggregate.id,
-                taskAggregate.description,
-                taskAggregate.observation || '',
-                taskAggregate.priority || 0,
-                taskAggregate.dueDate.toISOString(), // Conversão obrigatória
-                taskAggregate.createdDate.toISOString(), // Conversão obrigatória
-                taskAggregate.notify ? 1 : 0, // Conversão de boolean para int
-                taskAggregate.status
-            ]);
 
-            await db.runAsync(`DELETE FROM sub_tasks WHERE task_id = ?;`, [taskAggregate.id.toString()]);
+            try {
+                await db.runAsync(queryTask, {
+                    $id: taskAggregate.id.toString(),
+                    $description: taskAggregate.description,
+                    $observation: taskAggregate.observation || '',
+                    $priority: taskAggregate.priority || 0,
+                    $dueDate: taskAggregate.dueDate ? taskAggregate.dueDate.toISOString() : null, // Proteção contra null
+                    $createdDate: taskAggregate.createdDate.toISOString(),
+                    $notify: taskAggregate.notify ? 1 : 0,
+                    $status: taskAggregate.status
+                });
+            } catch (errTask) {
+                console.error("[ERRO SQL] Falha no INSERT/REPLACE da tabela 'tasks'.", errTask);
+                throw errTask; 
+            }
+
+            try {
+                await db.runAsync(`DELETE FROM sub_tasks WHERE task_id = $taskId;`, {
+                    $taskId: taskAggregate.id.toString()
+                });
+            } catch (errDelete) {
+                console.error("[ERRO SQL] Falha no DELETE da tabela 'sub_tasks'.", errDelete);
+                throw errDelete;
+            }
 
             const subTasks = taskAggregate.subTasks || [];
             if (subTasks.length > 0) {
-                const querySubTask = `INSERT INTO sub_tasks (id, task_id, description, status) VALUES (?, ?, ?, ?);`;
-                
-                for (const st of subTasks) {
-                    await db.runAsync(querySubTask, [
-                        st.id.toString(),
-                        taskAggregate.id.toString(),
-                        st.description,
-                        st.status || 1
-                    ]);
+                const querySubTask = `
+                    INSERT INTO sub_tasks (id, task_id, description, priority, createdDate, notify, status) 
+                    VALUES ($id, $taskId, $description, $priority, $createdDate, $notify, $status);
+                `;
+
+                for (let i = 0; i < subTasks.length; i++) {
+                    const st = subTasks[i];
+                    try {
+                        await db.runAsync(querySubTask, {
+                            $id: st.id.toString(),
+                            $taskId: taskAggregate.id.toString(),
+                            $description: st.description,
+                            $priority: st.priority || (i + 1),
+                            $createdDate: st.createdDate.toISOString(),
+                            $notify: st.notify ? 1 : 0,
+                            $status: st.status || 1
+                        });
+                    } catch (errSub) {
+                        console.error(`[ERRO SQL] Falha no INSERT da sub_task ID: ${st.id}`, errSub);
+                        throw errSub;
+                    }
                 }
             }
+
             return true;
         } catch (error) {
-            console.error("Falha ao persistir a Task e suas subtasks:", error);
+            console.error("[ERRO GERAL] Falha no fluxo de saveAsync:", error);
             return false;
         }
     }
 
     async getAllAsync(page = 1, pageSize = 20) {
         try {
-            const db = await this.#getDatabaseConnection();
-            const offset = (page - 1) * pageSize;
+            const db = this.#getDatabaseConnection(); // Síncrono
 
-            const queryTasks = `SELECT * FROM tasks ORDER BY priority DESC LIMIT ? OFFSET ?;`;
-            const taskRows = await db.getAllAsync(queryTasks, [pageSize, offset]);
+            const limit = parseInt(pageSize, 10) || 20;
+            const offset = parseInt((page - 1) * limit, 10) || 0;
 
-            if (taskRows.length === 0) return [];
+            const queryTasks = `SELECT * FROM tasks ORDER BY priority DESC LIMIT $limit OFFSET $offset;`;
+            const taskRows = await db.getAllAsync(queryTasks, { $limit: limit, $offset: offset });
+
+            if (!taskRows || taskRows.length === 0) return [];
 
             const taskIds = taskRows.map(row => `'${row.id}'`).join(',');
             const querySubTasks = `SELECT * FROM sub_tasks WHERE task_id IN (${taskIds});`;
-            const subRows = await db.getAllAsync(querySubTasks);
+            const subRows = await db.getAllAsync(querySubTasks, []); // Array vazio no lugar de nada
 
             return taskRows.map(row => {
                 const associatedSubRows = subRows.filter(sub => sub.task_id === row.id);
                 return this.#mapToAggregate(row, associatedSubRows);
             });
         } catch (error) {
-            console.error("Falha ao obter a listagem paginada de tarefas:", error);
+            console.error("Falha ao obter a listagem paginada de tarefas:", error.message);
             return [];
         }
     }
 
     async getByIdAsync(id) {
         try {
-            console.log(id);
-            const db = await this.#getDatabaseConnection();
-            const queryTask = `SELECT * FROM tasks WHERE id = ?;`;
-            console.log(db);
-            const row = await db.getFirstAsync(queryTask, [id.toString()]);
+            const db = this.#getDatabaseConnection(); // Síncrono
+            const safeId = id ? id.toString() : "";
+
+            const queryTask = `SELECT * FROM tasks WHERE id = $id;`;
+            const row = await db.getFirstAsync(queryTask, { $id: safeId });
+
             if (!row) return null;
 
-            const querySubTasks = `SELECT * FROM sub_tasks WHERE task_id = ?;`;
-            const subRows = await db.getAllAsync(querySubTasks, [id.toString()]);
+            const querySubTasks = `SELECT * FROM sub_tasks WHERE task_id = $id;`;
+            const subRows = await db.getAllAsync(querySubTasks, { $id: safeId });
 
             return this.#mapToAggregate(row, subRows);
         } catch (error) {
-            console.error("Falha ao obter tarefa por id:", error);
+            console.error("[ERRO GERAL] Falha no fluxo de getByIdAsync:", error);
             return null;
         }
     }
 
     async deleteAsync(id) {
         try {
-            const db = await this.#getDatabaseConnection();
-            const query = `DELETE FROM tasks WHERE id = ?;`;
-            await db.runAsync(query, [id.toString()]);
-
+            const db = this.#getDatabaseConnection(); // Síncrono
+            const query = `DELETE FROM tasks WHERE id = $id;`; // Usando parametro nomeado pra manter padrão
+            await db.runAsync(query, { $id: id.toString() });
             return true;
         } catch (error) {
             console.error("Falha ao deletar a Task:", error);
@@ -108,16 +136,15 @@ async saveAsync(taskAggregate) {
     }
 
     #mapToAggregate(taskRow, subRows) {
-        const mappedSubTasks = subRows.map(sub => ({
-            id: sub.id,
-            description: sub.description,
-            observation: sub.observation,
-            priority: sub.priority,
-            dueDate: new Date(sub.dueDate),
-            createdDate: new Date(sub.createdDate),
-            notify: sub.notify === 1,
-            status: sub.status
-        }));
+        // CORREÇÃO: Respeitando o schema e instanciando as subtasks corretamente para hidratação
+        const mappedSubTasks = subRows.map(sub => new SubTask(
+            sub.description,
+            sub.status,
+            sub.id,
+            sub.priority,
+            sub.createdDate, // Sem o new Date() aqui pois a SubTask já faz isso no construtor
+            sub.notify
+        ));
 
         return TaskAggregate.createFromDatabase(taskRow, mappedSubTasks);
     }

@@ -5,7 +5,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { translate } from './globalizations/i18n';
 import TaskList from './components/taskList';
 import { styles } from './styles/homeScreenStyles';
-import { TabEnum } from '../domain/enumerations/tabEnum'; 
+import { TabEnum } from '../domain/enumerations/tabEnum';
 
 export default function HomeScreen({ navigation }) {
   const [activeTab, setActiveTab] = useState(TabEnum.Day);

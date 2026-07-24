@@ -22,13 +22,16 @@ export default class TaskService {
                 task = await this._taskRepository.getByIdAsync(taskData.id);
                 if (!task) return false;
 
-                task.description = taskData.description;
-                task.observation = taskData.observation;
-                task.priority = taskData.priority;
-                task.dueDate = taskData.dueDate;
-                task.notify = taskData.notify;
-                task.status = taskData.status;
+                task.update(
+                    taskData.description ?? task.description,
+                    taskData.observation ?? task.observation,
+                    taskData.priority ?? task.priority,
+                    taskData.dueDate ?? task.dueDate,
+                    taskData.notify ?? task.notify,
+                    taskData.subTasks ?? task.subTasks
+                );
             } else {
+                console.log("[LOG TaskService.saveAsync] Iniciando:");
                 task = new TaskAggregate(
                     taskData.description,
                     taskData.observation,
@@ -36,6 +39,9 @@ export default class TaskService {
                     taskData.dueDate,
                     taskData.notify
                 );
+                if (taskData.subTasks && taskData.subTasks.length > 0) {
+                    task.addSubTasks(taskData.subTasks);
+                }
             }
 
             return await this._taskRepository.saveAsync(task);
@@ -44,7 +50,6 @@ export default class TaskService {
             return false;
         }
     }
-
     async deleteAsync(id) {
         if (!id) return false;
         return await this._taskRepository.deleteAsync(id);
