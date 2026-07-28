@@ -7,7 +7,8 @@ import {
   TextInput,
   FlatList,
   ActivityIndicator,
-  ScrollView
+  ScrollView,
+  KeyboardAvoidingView,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
@@ -15,11 +16,11 @@ import TaskRepository from '../infra/repositories/taskRepository';
 import TaskService from '../application/taskServices';
 import { translate } from './globalizations/i18n';
 import DateTimePicker from '@react-native-community/datetimepicker';
-import * as Crypto from 'expo-crypto';
+import { SubTask } from '../domain/entities/subTask';
 
 export default function TaskFormPage({ navigation, route }) {
   const params = route?.params || {};
-  const passedTaskId = params.taskId; // renomear para entityId
+  const entityId = params.taskId;
   const taskServiceRef = useRef(null);
 
   if (!taskServiceRef.current) {
@@ -28,45 +29,71 @@ export default function TaskFormPage({ navigation, route }) {
   }
   const taskService = taskServiceRef.current;
 
-  const [description, setDescription] = useState('');
-  const [observation, setObservation] = useState('');
-  const [dueDate, setDueDate] = useState(new Date(Date.now() + 60 * 1000));
-  const [notify, setNotify] = useState(false);
+  // ESTADO UNIFICADO DENTRO DE ENTITY
+  const [entity, setEntity] = useState({
+    id: null,
+    description: '',
+    observation: '',
+    dueDate: new Date(Date.now() + 60 * 60 * 1000),
+    notify: false,
+    subTasks: []
+  });
+
   const [error, setError] = useState('');
   const [saving, setSaving] = useState(false);
-
   const [isDescriptionFocused, setIsDescriptionFocused] = useState(false);
   const [isObservationFocused, setIsObservationFocused] = useState(false);
-
   const [showPicker, setShowPicker] = useState(false);
   const [pickerMode, setPickerMode] = useState('date');
-
-  const isDueDateValidForNotify = dueDate.getTime() > Date.now();
-
-  const [taskId, setTaskId] = useState(null);
-  const [subTasks, setSubTasks] = useState([]);
   const [newSubTaskDesc, setNewSubTaskDesc] = useState('');
 
+  const isDueDateValidForNotify = entity.dueDate.getTime() > Date.now();
+
+  // Helper para atualizar campos específicos do entity
+  const updateEntity = (field, value) => {
+    setEntity(prev => ({ ...prev, [field]: value }));
+  };
+
+  useEffect(() => {
+    if (entityId) {
+      loadTaskForEdit(entityId);
+    }
+  }, [entityId]);
+
+  const loadTaskForEdit = async (id) => {
+    const task = await taskService.getByIdAsync(id);
+    if (task) {
+      setEntity({
+        id: task.id,
+        description: task.description,
+        observation: task.observation,
+        dueDate: new Date(task.dueDate),
+        notify: task.notify,
+        subTasks: task.subTasks || []
+      });
+    }
+  };
+
   const handleSave = async () => {
-    if (!description || description.trim() === '') {
+    if (!entity.description || entity.description.trim() === '') {
       setError(translate('validationError'));
       return;
     }
-    if (!dueDate || isNaN(dueDate.getTime())) {
+    if (!entity.dueDate || isNaN(entity.dueDate.getTime())) {
       setError(translate('validationError'));
       return;
     }
 
-    const nextPriority = taskId ? undefined : (params.maxPriority || 0) + 1;
+    const nextPriority = entity.id ? undefined : (params.maxPriority || 0) + 1;
 
     const taskData = {
-      id: taskId,
-      description: description.trim(),
-      observation: observation.trim(),
+      id: entity.id,
+      description: entity.description.trim(),
+      observation: entity.observation.trim(),
       priority: nextPriority,
-      dueDate: dueDate,
-      notify: notify,
-      subTasks: subTasks
+      dueDate: entity.dueDate,
+      notify: entity.notify,
+      subTasks: entity.subTasks
     };
 
     setSaving(false);
@@ -77,6 +104,7 @@ export default function TaskFormPage({ navigation, route }) {
     setSaving(false);
 
     if (success) {
+      console.log("SUCESSO! (reload)");
       navigation.goBack();
     } else {
       setError(translate('saveError'));
@@ -85,7 +113,7 @@ export default function TaskFormPage({ navigation, route }) {
 
   const toggleNotify = () => {
     if (isDueDateValidForNotify) {
-      setNotify(!notify);
+      updateEntity('notify', !entity.notify);
     }
   };
 
@@ -101,211 +129,206 @@ export default function TaskFormPage({ navigation, route }) {
       return;
     }
 
-    setDueDate(selectedDate);
-
-    if (selectedDate.getTime() <= Date.now()) {
-      setNotify(false);
-    }
+    setEntity(prev => ({
+      ...prev,
+      dueDate: selectedDate,
+      // Desativa a notificação automaticamente se a data selecionada for no passado
+      notify: selectedDate.getTime() <= Date.now() ? false : prev.notify
+    }));
   };
 
-  useEffect(() => {
-    if (passedTaskId) {
-      loadTaskForEdit(passedTaskId);
-    }
-  }, [passedTaskId]);
-
-  const loadTaskForEdit = async (id) => {
-    const task = await taskService.getByIdAsync(id);
-    if (task) {
-      setTaskId(task.id);
-      setDescription(task.description);
-      setObservation(task.observation);
-      setDueDate(new Date(task.dueDate));
-      setNotify(task.notify);
-      setSubTasks(task.subTasks || []);
-    }
-  };
-
-  // sub tasks
   const handleAddSubTask = () => {
     if (!newSubTaskDesc.trim()) return;
 
-    const novaSubTask = {
-      id: Crypto.randomUUID(), // ID temporário em memória para controle da lista
-      description: newSubTaskDesc.trim(),
-      status: 1 // 1 para Todo
-    };
-
-    setSubTasks([...subTasks, novaSubTask]);
+    const novaSubTask = new SubTask(newSubTaskDesc.trim());
+    updateEntity('subTasks', [...entity.subTasks, novaSubTask]);
     setNewSubTaskDesc('');
   };
 
   const handleRemoveSubTask = (indexToRemove) => {
-    setSubTasks(subTasks.filter((_, index) => index !== indexToRemove));
+    updateEntity('subTasks', entity.subTasks.filter((_, index) => index !== indexToRemove));
   };
 
   return (
     <SafeAreaView style={styles.container}>
+      {/* HEADER */}
       <View style={styles.header}>
         <TouchableOpacity style={styles.headerBtn} onPress={() => navigation.goBack()}>
           <Text style={styles.headerBtnText}>❌</Text>
         </TouchableOpacity>
         <Text style={styles.headerTitle}>
-          {taskId ? translate('editTask') : translate('newTask')}
+          {entity.id ? translate('editTask') : translate('newTask')}
         </Text>
         <TouchableOpacity style={styles.headerBtn} onPress={handleSave} disabled={saving}>
           <Text style={styles.headerBtnText}>✅</Text>
         </TouchableOpacity>
       </View>
 
-      <ScrollView contentContainerStyle={styles.listContainer} showsVerticalScrollIndicator={false}>
-        <View style={styles.formContainer}>
-
-          <View style={styles.inputGroup}>
-            <View style={styles.labelRow}>
-              <Text style={styles.label}>{translate('descriptionLabel')} *</Text>
-              <Text style={styles.charCounter}>{description.length}/100</Text>
-            </View>
-            <TextInput
-              style={[styles.input, isDescriptionFocused && styles.inputFocused]}
-              value={description}
-              onChangeText={(text) => {
-                if (text.length <= 100) setDescription(text);
-              }}
-              placeholder={translate('descriptionPlaceholder')}
-              placeholderTextColor="#71717A"
-              onFocus={() => setIsDescriptionFocused(true)}
-              onBlur={() => setIsDescriptionFocused(false)}
-            />
-          </View>
-
-          <View style={styles.inputGroup}>
-            <View style={styles.labelRow}>
-              <Text style={styles.label}>{translate('observationLabel')}</Text>
-              <Text style={styles.charCounter}>{observation.length}/500</Text>
-            </View>
-            <TextInput
-              style={[styles.input, styles.multilineInput, isObservationFocused && styles.inputFocused]}
-              value={observation}
-              onChangeText={(text) => {
-                if (text.length <= 500) setObservation(text);
-              }}
-              placeholder={translate('observationPlaceholder')}
-              placeholderTextColor="#71717A"
-              multiline
-              numberOfLines={4}
-              onFocus={() => setIsObservationFocused(true)}
-              onBlur={() => setIsObservationFocused(false)}
-            />
-          </View>
-
-          {/* SESSÃO DE PRAZO */}
-          <View style={styles.inputGroup}>
-            <Text style={styles.label}>{translate('dueDateLabel')} *</Text>
-          </View>
-
-          <View style={styles.notifyGroup}>
-            <View style={styles.notifyRow}>
-              <View style={styles.notifyLabelContainer}>
-                <Text style={styles.notifyLabelText}>{translate('date')}</Text>
-              </View>
-              <TouchableOpacity style={styles.datePickerButton} onPress={() => openDateTimePicker('date')}>
-                <Text style={styles.datePickerButtonText}>
-                  📅 {dueDate.getDate().toString().padStart(2, '0')} de {translate('months')[dueDate.getMonth()]} de {dueDate.getFullYear()}
-                </Text>
-              </TouchableOpacity>
-            </View>
-
-            <View style={styles.notifyRow}>
-              <View style={styles.notifyLabelContainer}>
-                <Text style={styles.notifyLabelText}>{translate('time')}</Text>
-              </View>
-              <TouchableOpacity style={styles.datePickerButton} onPress={() => openDateTimePicker('time')}>
-                <Text style={styles.datePickerButtonText}>
-                  ⏰ {dueDate.getHours().toString().padStart(2, '0')}:{dueDate.getMinutes().toString().padStart(2, '0')}
-                </Text>
-              </TouchableOpacity>
-            </View>
-
-            <View style={[styles.notifyRow, !isDueDateValidForNotify && styles.notifyRowDisabled]}>
-              <View style={styles.notifyLabelContainer}>
-                <Text style={styles.notifyLabelText}>{translate('notifyLabel')}</Text>
-                {!isDueDateValidForNotify && (
-                  <Text style={styles.notifySubText}>Prazo deve ser futuro</Text>
-                )}
-              </View>
-
-              <TouchableOpacity
-                style={[
-                  styles.toggleButton,
-                  notify && styles.toggleButtonActive,
-                  !isDueDateValidForNotify && styles.toggleButtonDisabled
-                ]}
-                onPress={toggleNotify}
-                disabled={!isDueDateValidForNotify}
-              >
-                <Text style={styles.toggleText}>{notify ? '🔔 Sim' : '🔕 Não'}</Text>
-              </TouchableOpacity>
-            </View>
-          </View>
-
-          {/* SESSÃO DE SUB-TAREFAS COM FLATLIST */}
-          <View style={styles.inputGroup}>
-            <View style={styles.labelRow}>
-              <Text style={styles.label}>{translate('subTasksLabel')}</Text>
-            </View>
-
-            <FlatList
-              data={subTasks}
-              keyExtractor={(item, index) => item.id ? item.id.toString() : index.toString()}
-              scrollEnabled={false}
-              renderItem={({ item, index }) => (
-                <View style={styles.subTaskRow}>
-                  <Text style={styles.subTaskText}>• {item.description}</Text>
-                  <TouchableOpacity onPress={() => handleRemoveSubTask(index)}>
-                    <Text style={styles.subTaskDelete}>❌</Text>
-                  </TouchableOpacity>
-                </View>
-              )}
-            />
-
-            <View style={styles.addSubTaskContainer}>
-              <TextInput
-                style={[styles.input, { flex: 1, marginBottom: 0 }]}
-                value={newSubTaskDesc}
-                onChangeText={setNewSubTaskDesc}
-                placeholder="Nova sub-tarefa..."
-                placeholderTextColor="#71717A"
-              />
-              <TouchableOpacity style={styles.addSubTaskBtn} onPress={handleAddSubTask}>
-                <Text style={styles.addSubTaskBtnText}>+</Text>
-              </TouchableOpacity>
-            </View>
-          </View>
-
-          {showPicker && (
-            <DateTimePicker
-              value={dueDate}
-              mode={pickerMode}
-              is24Hour={true}
-              display="default"
-              minimumDate={new Date()}
-              onValueChange={handleDateChange}
-            />
-          )}
+      <KeyboardAvoidingView
+        style={{ flex: 1 }}
+        behavior={'padding'}>
+        <ScrollView
+          contentContainerStyle={styles.listContainer}
+          showsVerticalScrollIndicator={false}
+          keyboardShouldPersistTaps="handled" >
 
           {error ? (
             <View style={styles.errorContainer}>
               <Text style={styles.errorText}>⚠️ {error}</Text>
             </View>
           ) : null}
+          <View style={styles.formContainer}>
 
-          {saving && (
-            <ActivityIndicator size="small" color="#FACC15" style={{ marginTop: 15 }} />
-          )}
+            {/* DESCRIÇÃO */}
+            <View style={styles.inputGroup}>
+              <View style={styles.labelRow}>
+                <Text style={styles.label}>{translate('descriptionLabel')} *</Text>
+                <Text style={styles.charCounter}>{entity.description.length}/100</Text>
+              </View>
+              <TextInput
+                style={[styles.input, isDescriptionFocused && styles.inputFocused]}
+                value={entity.description}
+                onChangeText={(text) => {
+                  if (text.length <= 100) updateEntity('description', text);
+                }}
+                placeholder={translate('descriptionPlaceholder')}
+                placeholderTextColor="#71717A"
+                onFocus={() => setIsDescriptionFocused(true)}
+                onBlur={() => setIsDescriptionFocused(false)}
+              />
+            </View>
 
-        </View>
-      </ScrollView>
+            {/* OBSERVAÇÃO */}
+            <View style={styles.inputGroup}>
+              <View style={styles.labelRow}>
+                <Text style={styles.label}>{translate('observationLabel')}</Text>
+                <Text style={styles.charCounter}>{entity.observation.length}/500</Text>
+              </View>
+              <TextInput
+                style={[styles.input, styles.multilineInput, isObservationFocused && styles.inputFocused]}
+                value={entity.observation}
+                onChangeText={(text) => {
+                  if (text.length <= 500) updateEntity('observation', text);
+                }}
+                placeholder={translate('observationPlaceholder')}
+                placeholderTextColor="#71717A"
+                multiline
+                numberOfLines={4}
+                onFocus={() => setIsObservationFocused(true)}
+                onBlur={() => setIsObservationFocused(false)}
+              />
+            </View>
+
+            {/* SESSÃO DE PRAZO */}
+            <View style={styles.inputGroup}>
+              <Text style={styles.label}>{translate('dueDateLabel')} *</Text>
+            </View>
+
+            <View style={styles.notifyGroup}>
+              <View style={styles.notifyRow}>
+                <View style={styles.notifyLabelContainer}>
+                  <Text style={styles.notifyLabelText}>{translate('date')}</Text>
+                </View>
+                <TouchableOpacity style={styles.datePickerButton} onPress={() => openDateTimePicker('date')}>
+                  <Text style={styles.datePickerButtonText}>
+                    📅 {entity.dueDate.getDate().toString().padStart(2, '0')} de {translate('months')[entity.dueDate.getMonth()]} de {entity.dueDate.getFullYear()}
+                  </Text>
+                </TouchableOpacity>
+              </View>
+
+              <View style={styles.notifyRow}>
+                <View style={styles.notifyLabelContainer}>
+                  <Text style={styles.notifyLabelText}>{translate('time')}</Text>
+                </View>
+                <TouchableOpacity style={styles.datePickerButton} onPress={() => openDateTimePicker('time')}>
+                  <Text style={styles.datePickerButtonText}>
+                    ⏰ {entity.dueDate.getHours().toString().padStart(2, '0')}:{entity.dueDate.getMinutes().toString().padStart(2, '0')}
+                  </Text>
+                </TouchableOpacity>
+              </View>
+
+              <View style={[styles.notifyRow, !isDueDateValidForNotify && styles.notifyRowDisabled]}>
+                <View style={styles.notifyLabelContainer}>
+                  <Text style={styles.notifyLabelText}>{translate('notifyLabel')}</Text>
+                  {!isDueDateValidForNotify && (
+                    <Text style={styles.notifySubText}>Prazo deve ser futuro</Text>
+                  )}
+                </View>
+
+                <TouchableOpacity
+                  style={[
+                    styles.toggleButton,
+                    entity.notify && styles.toggleButtonActive,
+                    !isDueDateValidForNotify && styles.toggleButtonDisabled
+                  ]}
+                  onPress={toggleNotify}
+                  disabled={!isDueDateValidForNotify}
+                >
+                  <Text style={styles.toggleText}>{entity.notify ? '🔔 Sim' : '🔕 Não'}</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+
+            {/* SESSÃO DE SUB-TAREFAS COM FLATLIST */}
+            <View style={styles.inputGroup}>
+              <View style={styles.labelRow}>
+                <Text style={styles.label}>{translate('subTasksLabel')}</Text>
+              </View>
+
+              <FlatList
+                data={entity.subTasks}
+                keyExtractor={(item, index) => item.id ? item.id.toString() : index.toString()}
+                scrollEnabled={false}
+                renderItem={({ item, index }) => (
+                  <View style={styles.subTaskCard}>
+                    <View style={styles.subTaskRow}>
+                      <View style={styles.statusIconContainer}>
+                        <Text style={styles.statusIconText}>•</Text>
+                      </View>
+                      <Text style={styles.subTaskText}>{item.description}</Text>
+                      <TouchableOpacity
+                        onPress={() => handleRemoveSubTask(index)}
+                        style={styles.subTaskDeleteBtn}
+                      >
+                        <Text style={styles.subTaskDeleteBtnText}>❌</Text>
+                      </TouchableOpacity>
+                    </View>
+                  </View>
+                )}
+              />
+
+              <View style={styles.addSubTaskContainer}>
+                <TextInput
+                  style={[styles.input, { flex: 1, marginBottom: 0 }]}
+                  value={newSubTaskDesc}
+                  onChangeText={setNewSubTaskDesc}
+                  placeholder="Nova sub-tarefa..."
+                  placeholderTextColor="#71717A"
+                />
+                <TouchableOpacity style={styles.addSubTaskBtn} onPress={handleAddSubTask}>
+                  <Text style={styles.addSubTaskBtnText}>+</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+
+            {showPicker && (
+              <DateTimePicker
+                value={entity.dueDate}
+                mode={pickerMode}
+                is24Hour={true}
+                display="default"
+                minimumDate={new Date()}
+                onValueChange={handleDateChange}
+              />
+            )}
+
+            {saving && (
+              <ActivityIndicator size="small" color="#FACC15" style={{ marginTop: 15 }} />
+            )}
+
+          </View>
+        </ScrollView>
+      </KeyboardAvoidingView>
     </SafeAreaView>
   );
 }
@@ -337,9 +360,6 @@ const styles = StyleSheet.create({
     backgroundColor: '#1C1C1E',
     justifyContent: 'center',
     alignItems: 'center',
-  },
-  headerBtnSave: {
-    backgroundColor: '#FACC15',
   },
   headerBtnText: {
     fontSize: 16,
@@ -458,38 +478,59 @@ const styles = StyleSheet.create({
     fontWeight: '500',
     textAlign: 'center',
   },
-  subTaskRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
+  // Estilos Alinhados com a ViewTaskPage
+  subTaskCard: {
     backgroundColor: '#1C1C1E',
-    padding: 12,
-    borderRadius: 8,
+    borderRadius: 10,
     marginBottom: 8,
     borderWidth: 1,
     borderColor: '#27272A',
+    overflow: 'hidden',
+  },
+  subTaskRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    height: 52,
+  },
+  statusIconContainer: {
+    marginRight: 12,
+    width: 20,
+    alignItems: 'center',
+  },
+  statusIconText: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#10B981',
   },
   subTaskText: {
-    color: '#FFFFFF',
-    fontSize: 14,
     flex: 1,
+    color: '#FFFFFF',
+    fontSize: 15,
+    fontWeight: '500',
   },
-  subTaskDelete: {
+  subTaskDeleteBtn: {
+    padding: 8,
+  },
+  subTaskDeleteBtnText: {
     fontSize: 12,
-    paddingLeft: 10,
   },
   addSubTaskContainer: {
     flexDirection: 'row',
     alignItems: 'center',
     marginTop: 8,
+    height: 52,
   },
   addSubTaskBtn: {
     backgroundColor: '#27272A',
-    width: 50,
+    width: 52,
+    height: 52,
     borderRadius: 12,
     justifyContent: 'center',
     alignItems: 'center',
     marginLeft: 8,
+    borderWidth: 1.5,
+    borderColor: '#27272A',
   },
   addSubTaskBtnText: {
     color: '#FACC15',

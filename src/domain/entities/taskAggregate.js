@@ -57,7 +57,6 @@ export default class TaskAggregate {
 
     addSubTasks(subTasksArray) {
         if (!Array.isArray(subTasksArray) || subTasksArray.length === 0) return [];
-
         const warnings = [];
         const validSubTasks = [];
 
@@ -66,20 +65,11 @@ export default class TaskAggregate {
                 warnings.push(`A sub-tarefa "${st.description || 'Sem nome'}" possui dados inválidos e foi ignorada.`);
                 continue;
             }
-
-            validSubTasks.push(new SubTask(
-                st.description,
-                st.status,
-                st.id,
-                st.priority,
-                st.createdDate,
-                st.notify
-            ));
+            validSubTasks.push(new SubTask(st.description));
         }
 
         this.#_subTasks.push(...validSubTasks);
         this.#processCalculatedProperties();
-
         return warnings;
     }
 
@@ -96,7 +86,16 @@ export default class TaskAggregate {
 
         if (Array.isArray(subTasks)) {
             this.#_subTasks = [];
-            this.addSubTasks(subTasks);
+
+            for (const st of subTasks) {
+                if (!TaskValidator.validateSubTask(st.description)) continue;
+
+                if (st.id) {
+                    this.#_subTasks.push(SubTask.restore(st));
+                } else {
+                    this.#_subTasks.push(new SubTask(st.description));
+                }
+            }
         }
 
         this.#processCalculatedProperties();
@@ -117,7 +116,8 @@ export default class TaskAggregate {
 
         instance.id = rawData.id;
         instance.createdDate = new Date(rawData.createdDate);
-        instance.status = rawData.status;
+
+        instance.status = taskStatus.parse(rawData.status);
 
         instance.#_subTasks = Array.isArray(subTasks) ? subTasks : [];
         instance.#processCalculatedProperties();
