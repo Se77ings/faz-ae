@@ -104,8 +104,11 @@ export default function TaskFormPage({ navigation, route }) {
     setSaving(false);
 
     if (success) {
-      console.log("SUCESSO! (reload)");
-      navigation.goBack();
+      if (entity.id) {
+        navigation.navigate('ViewTask', { taskId: entity.id, refreshRequired: true }, { merge: true });
+      } else {
+        navigation.navigate('Home', { refreshRequired: true }, { merge: true });
+      }
     } else {
       setError(translate('saveError'));
     }

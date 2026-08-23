@@ -18,7 +18,7 @@ export default function ViewTaskPage({ navigation, route }) {
 
     const taskService = taskServiceRef.current;
     const [expandedSubTaskId, setExpandedSubTaskId] = useState(null);
-
+    const [hasModifications, setHasModifications] = useState(false);
     const toggleExpandSubTask = (id) => {
         setExpandedSubTaskId(prevId => prevId === id ? null : id);
     };
@@ -37,6 +37,14 @@ export default function ViewTaskPage({ navigation, route }) {
             getDataAsync(entityId);
         }
     }, [entityId]);
+
+    useEffect(() => {
+        if (route.params?.refreshRequired) {
+            getDataAsync(entityId);
+            setHasModifications(true);
+            navigation.setParams({ refreshRequired: false });
+        }
+    }, [route.params?.refreshRequired]);
 
     const getDataAsync = async (id) => {
         const task = await taskService.getByIdAsync(id);
@@ -61,10 +69,10 @@ export default function ViewTaskPage({ navigation, route }) {
     const isTaskDone = entity.status === taskStatus.Done || entity.status === 2;
 
     const handleCompleteSubTaskAsync = async (subTaskId) => {
-        
         try {
             const result = await taskService.completeSubTaskAsync(entity.id, subTaskId);
             if (result) {
+                setHasModifications(true);
                 getDataAsync(entity.id);
             }
         } catch (ex) {
@@ -87,7 +95,7 @@ export default function ViewTaskPage({ navigation, route }) {
         try {
             const result = await taskService.reopenTaskAsync(entity.id);
             if (result) {
-                getDataAsync(entity.id); 
+                getDataAsync(entity.id);
             }
         } catch (error) {
             console.error("Erro ao reabrir a tarefa:", error);
@@ -124,11 +132,18 @@ export default function ViewTaskPage({ navigation, route }) {
         }
     };
 
+    const handleGoBack = () => {
+        if (hasModifications) {
+            navigation.navigate('Home', { refreshRequired: true }, { merge: true });
+        } else {
+            navigation.goBack();
+        }
+    };
     return (
         <SafeAreaView style={styles.container}>
             {/* HEADER */}
             <View style={styles.header}>
-                <TouchableOpacity style={styles.headerBtn} onPress={() => navigation.goBack()}>
+                <TouchableOpacity style={styles.headerBtn} onPress={handleGoBack}>
                     <Text style={styles.headerBtnText}>⬅️</Text>
                 </TouchableOpacity>
                 <Text style={styles.headerTitle}>{translate('task')}</Text>

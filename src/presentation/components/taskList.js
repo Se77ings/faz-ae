@@ -10,14 +10,14 @@ import { useNavigation } from '@react-navigation/native';
 const taskRepository = new TaskRepository();
 const taskService = new TaskService(taskRepository);
 
-export default function TaskList({ selectedDate, activeTab }) {
+export default function TaskList({ selectedDate, activeTab, refreshCounter }) {
     const [tasks, setTasks] = useState([]);
     const [loading, setLoading] = useState(true);
     const navigation = useNavigation();
 
     useEffect(() => {
         fetchTasks();
-    }, [selectedDate, activeTab]);
+    }, [selectedDate, activeTab, refreshCounter]);
 
     const fetchTasks = async () => {
         setLoading(true);

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Text, View, TouchableOpacity } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
@@ -7,7 +7,7 @@ import TaskList from './components/taskList';
 import { styles } from './styles/homeScreenStyles';
 import { TabEnum } from '../domain/enumerations/tabEnum';
 
-export default function HomeScreen({ navigation }) {
+export default function HomeScreen({ navigation, route }) {
   const [activeTab, setActiveTab] = useState(TabEnum.Day);
   const [selectedDate, setSelectedDate] = useState(new Date());
 
@@ -49,6 +49,15 @@ export default function HomeScreen({ navigation }) {
       return `${monthName} de ${year}`;
     }
   };
+
+  const [refreshCounter, setRefreshCounter] = useState(0);
+
+  useEffect(() => {
+    if (route.params?.refreshRequired) {
+      setRefreshCounter(prev => prev + 1);
+      navigation.setParams({ refreshRequired: false }); 
+    }
+  }, [route.params?.refreshRequired]);
 
   return (
     <SafeAreaView style={styles.container}>
@@ -93,7 +102,7 @@ export default function HomeScreen({ navigation }) {
         </TouchableOpacity>
       </View>
 
-      <TaskList selectedDate={selectedDate} activeTab={activeTab} />
+      <TaskList selectedDate={selectedDate} activeTab={activeTab} refreshCounter={refreshCounter} />
     </SafeAreaView>
   );
 }
