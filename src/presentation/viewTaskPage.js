@@ -2,6 +2,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import { StyleSheet, Text, View, TouchableOpacity, FlatList, ScrollView, Alert } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import TaskRepository from '../infra/repositories/taskRepository';
+import TaskAlarmScheduler from '../infra/alarms/taskAlarmScheduler';
 import TaskService from '../application/taskServices';
 import { translate } from './globalizations/i18n';
 import { taskStatus } from "../domain/enumerations/taskStatus";
@@ -13,7 +14,7 @@ export default function ViewTaskPage({ navigation, route }) {
 
     if (!taskServiceRef.current) {
         const repository = new TaskRepository();
-        taskServiceRef.current = new TaskService(repository);
+        taskServiceRef.current = new TaskService(repository, new TaskAlarmScheduler(translate));
     }
 
     const taskService = taskServiceRef.current;

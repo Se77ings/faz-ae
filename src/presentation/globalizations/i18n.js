@@ -23,6 +23,16 @@ const translations = {
     date: "Data",
     time: "Horário",
     subTasksLabel: "Sub-tarefas",
+    alarmStop: "Parar",
+    alarmSnooze: "Adiar 10 min",
+    openSettings: "Abrir configurações",
+    notNow: "Agora não",
+    notificationPermissionTitle: "Notificações desativadas",
+    notificationPermissionMessage: "Para o alarme tocar, permita as notificações do Faz-ae nas configurações do aparelho.",
+    exactAlarmPermissionTitle: "Alarmes no horário exato",
+    exactAlarmPermissionMessage: "Sem esta permissão o Android pode atrasar o alarme. Deseja permitir alarmes e lembretes?",
+    fullScreenPermissionTitle: "Alarme em tela cheia",
+    fullScreenPermissionMessage: "Permita notificações em tela cheia para o alarme aparecer mesmo com a tela bloqueada.",
   },
   "en-US": {
     myTasks: "My Tasks",
@@ -48,6 +58,16 @@ const translations = {
     date: "Date",
     time: "Time",
     subTasksLabel: "Sub-tasks",
+    alarmStop: "Stop",
+    alarmSnooze: "Snooze 10 min",
+    openSettings: "Open settings",
+    notNow: "Not now",
+    notificationPermissionTitle: "Notifications disabled",
+    notificationPermissionMessage: "For the alarm to ring, allow Faz-ae notifications in the device settings.",
+    exactAlarmPermissionTitle: "Exact-time alarms",
+    exactAlarmPermissionMessage: "Without this permission Android may delay the alarm. Allow alarms & reminders?",
+    fullScreenPermissionTitle: "Full-screen alarm",
+    fullScreenPermissionMessage: "Allow full-screen notifications so the alarm shows up even on the lock screen.",
   }
 };
 

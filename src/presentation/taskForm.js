@@ -1,20 +1,12 @@
 import React, { useState, useRef, useEffect } from 'react';
-import {
-  StyleSheet,
-  Text,
-  View,
-  TouchableOpacity,
-  TextInput,
-  FlatList,
-  ActivityIndicator,
-  ScrollView,
-  KeyboardAvoidingView,
-} from 'react-native';
+import { StyleSheet, Text, View, TouchableOpacity, TextInput, FlatList, ActivityIndicator, ScrollView, KeyboardAvoidingView } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import TaskRepository from '../infra/repositories/taskRepository';
+import TaskAlarmScheduler from '../infra/alarms/taskAlarmScheduler';
 import TaskService from '../application/taskServices';
 import { translate } from './globalizations/i18n';
+import { ensureAlarmPermissionsAsync } from './alarmPermissions';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { SubTask } from '../domain/entities/subTask';
 
@@ -25,7 +17,7 @@ export default function TaskFormPage({ navigation, route }) {
 
   if (!taskServiceRef.current) {
     const repository = new TaskRepository();
-    taskServiceRef.current = new TaskService(repository);
+    taskServiceRef.current = new TaskService(repository, new TaskAlarmScheduler(translate));
   }
   const taskService = taskServiceRef.current;
 
@@ -114,10 +106,10 @@ export default function TaskFormPage({ navigation, route }) {
     }
   };
 
-  const toggleNotify = () => {
-    if (isDueDateValidForNotify) {
-      updateEntity('notify', !entity.notify);
-    }
+  const toggleNotify = async () => {
+    if (!isDueDateValidForNotify) return;
+    if (!entity.notify && !(await ensureAlarmPermissionsAsync())) return;
+    updateEntity('notify', !entity.notify);
   };
 
   const openDateTimePicker = (mode) => {

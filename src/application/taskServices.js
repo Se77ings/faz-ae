@@ -1,8 +1,14 @@
 import TaskAggregate from '../domain/entities/taskAggregate';
+import { taskStatus } from '../domain/enumerations/taskStatus';
+
+// TDS-6: antecedência padrão até existir a tela de Configurações com os intervalos do usuário.
+const ALARM_LEAD_MINUTES = 60;
 
 export default class TaskService {
-    constructor(taskRepository) {
+    // alarmScheduler é opcional: telas que só listam tarefas não mexem em alarmes.
+    constructor(taskRepository, alarmScheduler = null) {
         this._taskRepository = taskRepository;
+        this._alarmScheduler = alarmScheduler;
     }
 
     async getByIdAsync(id) {
@@ -45,7 +51,7 @@ export default class TaskService {
                 }
             }
 
-            return await this._taskRepository.saveAsync(task);
+            return await this.#persistAsync(task);
         } catch (error) {
             console.error("Erro na camada de aplicação ao salvar tarefa:", error.message);
             return false;
@@ -54,7 +60,9 @@ export default class TaskService {
 
     async deleteAsync(id) {
         if (!id) return false;
-        return await this._taskRepository.deleteAsync(id);
+        const deleted = await this._taskRepository.deleteAsync(id);
+        if (deleted) this.#cancelAlarm(id);
+        return deleted;
     }
 
     async completeTaskAsync(taskId) {
@@ -72,7 +80,7 @@ export default class TaskService {
         }
 
         task.completeTask();
-        return await this._taskRepository.saveAsync(task);
+        return await this.#persistAsync(task);
     }
 
     async reopenTaskAsync(taskId) {
@@ -83,7 +91,7 @@ export default class TaskService {
             // TODO: Futuramente, verificar se a dueDate da tarefa é uma data válida no futuro antes de permitir a reabertura (Regra de Negócio). <TDS-23>
 
             task.reopenTask();
-            return await this._taskRepository.saveAsync(task);
+            return await this.#persistAsync(task);
         } catch (error) {
             console.error("Erro ao reabrir tarefa principal:", error);
             return false;
@@ -122,5 +130,41 @@ export default class TaskService {
             csonsole.error("Erro ao reabrir subTask:", error);
             return false;
         }
+    }
+
+    async #persistAsync(task) {
+        const saved = await this._taskRepository.saveAsync(task);
+        if (saved) this.#syncAlarm(task);
+        return saved;
+    }
+
+    // Uma falha no alarme não desfaz o que já foi salvo: a tarefa continua válida sem ele.
+    #syncAlarm(task) {
+        if (!this._alarmScheduler) return;
+
+        try {
+            const shouldRing = task.notify && task.status === taskStatus.Todo && task.dueDate > new Date();
+            if (!shouldRing) {
+                this._alarmScheduler.cancel(task.id);
+                return;
+            }
+            this._alarmScheduler.schedule(task, this.#alarmTimeFor(task));
+        } catch (error) {
+            console.error("Erro ao sincronizar o alarme da tarefa:", error);
+        }
+    }
+
+    #cancelAlarm(taskId) {
+        try {
+            this._alarmScheduler?.cancel(taskId);
+        } catch (error) {
+            console.error("Erro ao cancelar o alarme da tarefa:", error);
+        }
+    }
+
+    // Se a antecedência já passou (prazo próximo), o alarme toca no próprio prazo.
+    #alarmTimeFor(task) {
+        const withLead = new Date(task.dueDate.getTime() - ALARM_LEAD_MINUTES * 60 * 1000);
+        return withLead > new Date() ? withLead : task.dueDate;
     }
 }
