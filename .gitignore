@@ -39,3 +39,7 @@ yarn-error.*
 # generated native folders
 /ios
 /android
+.idea/faz-ae.iml
+.idea/modules.xml
+.idea/vcs.xml
+.idea/.gitignore
